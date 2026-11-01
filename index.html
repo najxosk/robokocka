@@ -24,12 +24,13 @@
   #btnOverlay { position:absolute; bottom:0; left:0; right:0; text-align:center; padding-bottom:calc(env(safe-area-inset-bottom,0px) + 16px); pointer-events:none; }
   .btn {
     pointer-events:auto; cursor:pointer;
-    border:0; border-radius:999px;
-    padding:16px 26px; font-size:18px; font-weight:800;
+    border:0; border-radius:18px;
+    padding:22px 34px; font-size:20px; font-weight:800;
     color:#fff; background:linear-gradient(135deg,#ff7e5f,#ffb45e);
-    box-shadow:0 10px 30px rgba(0,0,0,.5);
-    font-family:inherit;
+    box-shadow:0 12px 34px rgba(0,0,0,.55);
+    font-family:inherit; display:block; width:100%; max-width:340px; margin:0 auto;
   }
+  .btn.big { padding:26px; font-size:24px; border:3px solid #fff; }
   #hint {
     pointer-events:none; text-align:center; font-size:14px;
     color:#ffe0c0; background:rgba(0,0,0,.45);
@@ -48,9 +49,9 @@
   <div id="overlay">
     <div id="hint">Otvoriť AR — nasmeruj telefón na stôl 🎲</div>
     <div id="btnOverlay">
-      <button class="btn hidden" id="btnEnter">🔮 Spustiť AR</button>
-      <button class="btn hidden" id="btnPremena">🤖 Premena na robota</button>
-      <button class="btn hidden" id="btnZnova">🔄 Znova hodiť</button>
+      <button class="btn big hidden" id="btnEnter">🔮 Spustiť AR</button>
+      <button class="btn big hidden" id="btnPremena">🤖 Rozlož robota</button>
+      <button class="btn big hidden" id="btnZnova">🔄 Hodiť znova</button>
     </div>
   </div>
 
@@ -256,8 +257,7 @@ function init(){
   scene.add(controller);
 
   const arBtn=ARButton.createButton(renderer,{
-    requiredFeatures:['hit-test'],
-    optionalFeatures:['dom-overlay']
+    requiredFeatures:['hit-test','dom-overlay']
   },{domOverlay:{root:document.getElementById('overlay')}});
   arBtn.style.display='none';
   btnEnter.addEventListener('click', ()=>arBtn.click());
