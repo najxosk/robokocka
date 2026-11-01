@@ -83,6 +83,7 @@ let robot = null;
 let pieces = [];
 let placed = false, transforming = false, dropping = false;
 let robotBaseY = 0;
+let btn3D = null;
 const eyes = [];
 
 const S = 0.055; // veľkosť jedného voxela
@@ -142,7 +143,9 @@ function placeCubeAt(posWorld){
   placed = true;
   if(reticle) reticle.visible = false;
   show(['btnPremena']);
-  setHint('🏠 Kocka je na stole. <b>Ťukni na ňu</b> alebo stlač <b>🤖 Premena</b> — rozloží sa na robota.');
+  // 3D tlačidlo "ROBOT" – v AR scéne, teda vždy viditeľné
+  showRobotButton(posWorld);
+  setHint('🏠 Kocka je na stole. <b>Ťukni na ňu</b> alebo stlač 3D tlačidlo <b>🤖 ROBOT</b>.');
 }
 function animDrop(g, landY){
   const startY = g.position.y;
@@ -162,6 +165,7 @@ function transformToRobot(){
   if(!cube || transforming) return;
   transforming = true;
   btnPremena.disabled = true;
+  if(btn3D){ scene.remove(btn3D); btn3D = null; }
 
   robot = new THREE.Group();
   robot.position.copy(cube.position);
@@ -221,11 +225,51 @@ function addEyes(){
 function resetAll(){
   if(robot) scene.remove(robot);
   if(cube) scene.remove(cube);
+  if(btn3D){ scene.remove(btn3D); btn3D = null; }
   robot=null; cube=null; pieces=[]; eyes.length=0;
   placed=false; transforming=false;
   if(reticle) reticle.visible=true;
   show(['btnEnter']);
   setHint('Namier na stôl a ťukni — kocka tam dopadne. Potom <b>🤖 Premena</b>.');
+}
+
+/* -------- 3D tlačidlo "🤖 ROBOT" -------- */
+function roundRectPath(g,x,y,w,h,r){
+  g.beginPath();
+  g.moveTo(x+r,y);
+  g.arcTo(x+w,y,x+w,y+h,r); g.arcTo(x+w,y+h,x,y+h,r);
+  g.arcTo(x,y+h,x,y,r); g.arcTo(x,y,x+w,y,r);
+  g.closePath();
+}
+function makeTextSprite(text){
+  const c=document.createElement('canvas'); c.width=1024; c.height=256;
+  const g=c.getContext('2d');
+  g.clearRect(0,0,c.width,c.height);
+  const fs=120;
+  g.font='700 '+fs+'px system-ui, "Segoe UI", sans-serif';
+  g.textAlign='center'; g.textBaseline='middle';
+  g.fillStyle='rgba(20,15,10,0.78)';
+  roundRectPath(g, c.width/2-320, c.height/2-72, 640, 144, 60); g.fill();
+  g.strokeStyle='#ffb45e'; g.lineWidth=12; roundRectPath(g, c.width/2-320, c.height/2-72, 640, 144, 60); g.stroke();
+  g.fillStyle='#ffffff'; g.shadowColor='rgba(0,0,0,.6)'; g.shadowBlur=26;
+  g.fillText(text, c.width/2, c.height/2);
+  const tex=new THREE.CanvasTexture(c);
+  tex.minFilter=THREE.LinearFilter; tex.anisotropy=4;
+  const spr=new THREE.Sprite(new THREE.SpriteMaterial({map:tex, transparent:true, depthTest:false}));
+  spr.scale.set(0.42,0.105,1);
+  spr.renderOrder=999;
+  return spr;
+}
+function showRobotButton(cubePos){
+  if(btn3D) scene.remove(btn3D);
+  btn3D = makeTextSprite('🤖  ROBOT');
+  const dirToCam = new THREE.Vector3().subVectors(camera.position, cubePos);
+  dirToCam.y = 0;
+  if(dirToCam.lengthSq() < 1e-6) dirToCam.set(0,0,1);
+  dirToCam.normalize();
+  btn3D.position.copy(cubePos).add(dirToCam.multiplyScalar(0.28));
+  btn3D.position.y += 0.10;
+  scene.add(btn3D);
 }
 
 // ---------- init ----------
@@ -331,10 +375,11 @@ function updateHitTest(frame){
       if(results.length){
         const hit = results[0];
         const pose = hit.getPose(refSpace);
-        if(pose){
+        if(pose && !placed){
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
-          reticle.userData.lastPose = reticle.matrix.clone();
+        } else if(placed){
+          reticle.visible = false;
         }
       } else {
         reticle.visible = false;
@@ -344,6 +389,12 @@ function updateHitTest(frame){
 }
 
 function updateDynamics(){
+  if(btn3D){
+    const t=performance.now()/1000;
+    const pul=1+0.10*Math.sin(t*6);
+    btn3D.scale.set(0.42*pul,0.105*pul,1);
+    btn3D.visible = !transforming;
+  }
   pieces.forEach(pc=>{
     if(pc.phase==='boom'){
       const p=easeOut(Math.min(1,(performance.now()-pc.start)/450));
