@@ -236,7 +236,7 @@ function init(){
   renderer.setPixelRatio(Math.min(devicePixelRatio,2));
   renderer.setSize(innerWidth,innerHeight);
   renderer.xr.enabled=true;
-  renderer.xr.setReferenceSpaceType('local-floor');
+  renderer.xr.setReferenceSpaceType('local');
   document.getElementById('app').appendChild(renderer.domElement);
 
   // reticle - krúžok na stole
@@ -267,14 +267,45 @@ function init(){
 }
 function onRender(t,frame){
   updateHitTest(frame);
+  manageHint();
   updateDynamics();
   renderer.render(scene,camera);
 }
+let lastScanMsg = '';
+function manageHint(){
+  const presenting = renderer.xr && renderer.xr.isPresenting;
+  if(!presenting || placed || !hint) return;
+  const ok = reticle && reticle.visible;
+  const msg = ok
+    ? '🎯 Krúžok na stole — ťukni miesto, kam chceš hodiť kocku'
+    : '📷 Hýb telefónom pomaly po stole, aby sa stôl naskenoval…';
+  if(msg !== lastScanMsg){ hint.innerHTML = '<b>'+msg+'</b>'; lastScanMsg = msg; }
+}
 function onSelect(){
-  if(!placed && reticle && reticle.visible){
+  if(placed) return;
+  if(reticle && reticle.visible){
     const p = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
     placeCubeAt(p);
+  } else {
+    fallbackPlace();
   }
+}
+
+// záložné: ak stôl nie je naskenovaný, polož kocku do stredu zorného poľa —
+// na pomyselnú rovinu mierne pod úrovňou kamery (približná stolovka)
+function fallbackPlace(){
+  if(!camera) return;
+  const camY = camera.position.y;
+  const planeY = camY - 0.6;
+  const dir = new THREE.Vector3();
+  camera.getWorldDirection(dir);
+  if(dir.y >= -0.01){ // nedíva sa dole — nevieme odhadnúť; skús rovno predošle miesto
+    return;
+  }
+  const t = (planeY - camera.position.y) / dir.y;
+  if(t <= 0 || t > 4) return;
+  const point = camera.position.clone().add(dir.clone().multiplyScalar(t));
+  placeCubeAt(point);
 }
 
 function updateHitTest(frame){
@@ -297,6 +328,7 @@ function updateHitTest(frame){
         if(pose){
           reticle.visible = true;
           reticle.matrix.fromArray(pose.transform.matrix);
+          reticle.userData.lastPose = reticle.matrix.clone();
         }
       } else {
         reticle.visible = false;
