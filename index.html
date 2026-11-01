@@ -80,7 +80,7 @@ let referenceSpace = null;
 let cube = null;
 let robot = null;
 let pieces = [];
-let placed = false, transforming = false;
+let placed = false, transforming = false, dropping = false;
 let robotBaseY = 0;
 const eyes = [];
 
@@ -141,7 +141,7 @@ function placeCubeAt(posWorld){
   placed = true;
   if(reticle) reticle.visible = false;
   show(['btnPremena']);
-  setHint('🏠 Kocka dopadla na stôl. Stlač <b>🤖 Premena na robota</b>.');
+  setHint('🏠 Kocka je na stole. <b>Ťukni na ňu</b> alebo stlač <b>🤖 Premena</b> — rozloží sa na robota.');
 }
 function animDrop(g, landY){
   const startY = g.position.y;
@@ -149,14 +149,16 @@ function animDrop(g, landY){
   function step(t){
     const p=Math.min(1,(t-t0)/dur);
     g.position.y = startY + (landY-startY)*(p*p);
-    if(p<1) requestAnimationFrame(step);
+    if(p<1){ requestAnimationFrame(step); }
+    else dropping=false;
   }
+  dropping=true;
   requestAnimationFrame(step);
 }
 
 // rozbitie + poskladanie do robota
 function transformToRobot(){
-  if(transforming) return;
+  if(!cube || transforming) return;
   transforming = true;
   btnPremena.disabled = true;
 
@@ -282,12 +284,16 @@ function manageHint(){
   if(msg !== lastScanMsg){ hint.innerHTML = '<b>'+msg+'</b>'; lastScanMsg = msg; }
 }
 function onSelect(){
-  if(placed) return;
-  if(reticle && reticle.visible){
+  if(transforming || dropping) return;
+  if(!placed && reticle && reticle.visible){
     const p = new THREE.Vector3().setFromMatrixPosition(reticle.matrix);
     placeCubeAt(p);
-  } else {
+  } else if(!placed){
     fallbackPlace();
+  } else {
+    // kocka už je na stole → ťuknutie ju rozloží na robota
+    if(cube) transformToRobot();
+    else resetAll();
   }
 }
 
