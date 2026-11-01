@@ -82,6 +82,7 @@ let cube = null;
 let robot = null;
 let pieces = [];
 let placed = false, transforming = false, dropping = false;
+let sessionDownAt = 0;
 let robotBaseY = 0;
 let btn3D = null;
 const eyes = [];
@@ -143,8 +144,8 @@ function placeCubeAt(posWorld){
   placed = true;
   if(reticle) reticle.visible = false;
   show(['btnPremena']);
-  // 3D tlačidlo "ROBOT" – v AR scéne, teda vždy viditeľné
-  showRobotButton(posWorld);
+  // 3D tlačidlo "ROBOT" – v AR scéne, teda vždy viditeľné (nesmie zablokovať položenie kocky)
+  try { showRobotButton(posWorld); } catch(e) {}
   setHint('🏠 Kocka je na stole. <b>Ťukni na ňu</b> alebo stlač 3D tlačidlo <b>🤖 ROBOT</b>.');
 }
 function animDrop(g, landY){
@@ -301,8 +302,8 @@ function init(){
   scene.add(controller);
 
   const arBtn=ARButton.createButton(renderer,{
-    requiredFeatures:['hit-test','dom-overlay']
-  },{domOverlay:{root:document.getElementById('overlay')}});
+    requiredFeatures:['hit-test']
+  });
   arBtn.style.display='none';
   btnEnter.addEventListener('click', ()=>arBtn.click());
   btnEnter.classList.remove('hidden');
@@ -389,6 +390,14 @@ function updateHitTest(frame){
 }
 
 function updateDynamics(){
+  // ak AR relácia reálne spadla (>0.7 s), uprac stav; krátky výpadok snímky nič nemení
+  if(placed && !transforming){
+    const presenting = renderer.xr ? renderer.xr.isPresenting : false;
+    if(!presenting){
+      if(!sessionDownAt) sessionDownAt = performance.now();
+      else if(performance.now()-sessionDownAt > 700){ sessionDownAt = 0; resetAll(); }
+    } else { sessionDownAt = 0; }
+  }
   if(btn3D){
     const t=performance.now()/1000;
     const pul=1+0.10*Math.sin(t*6);
